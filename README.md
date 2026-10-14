@@ -43,7 +43,7 @@ Breaking the residual distribution, or skipping either cache rollback, makes a c
 ```bash
 pip install -r requirements.txt
 python check.py
-python bench.py                       # greedy; asserts output == target alone
+python bench.py                       # greedy; reports any token where the output leaves the target alone (bf16 rounding)
 python bench.py --temperature 0.7     # sampling
 ```
 

@@ -1,7 +1,7 @@
 """Speed and acceptance on real models: Qwen2.5-1.5B-Instruct (target) with Qwen2.5-0.5B-Instruct (draft),
 same tokenizer, both loaded into llama.py from their Hugging Face checkpoints.
 
-    python bench.py                       # greedy: also asserts speculative output == target-only output
+    python bench.py                       # greedy: also reports where (if anywhere) the output leaves the target-only output
     python bench.py --temperature 0.7
 
 Prints, per gamma: wall-clock tokens/s, speedup over the target alone, draft acceptance rate alpha, tokens
@@ -62,8 +62,11 @@ def main() -> None:
         tokens = seconds = drafted = accepted = passes = 0
         for p, want in zip(prompts, baseline):
             out, st = speculative(target, draft, p, args.max_new, gamma, args.temperature, eos)
-            if args.temperature == 0:
-                assert out == want, "greedy speculative decoding must reproduce the target's output exactly"
+            if args.temperature == 0 and out != want:
+                # Exact in float32 (check.py); in bfloat16 the target scoring gamma+1 tokens in one pass rounds
+                # differently from scoring them one at a time, so a near-tie between two tokens can flip.
+                first = next((i for i, (a, b) in enumerate(zip(out, want)) if a != b), min(len(out), len(want)))
+                print(f"  gamma {gamma}: output differs from the target alone from token {first} of {len(want)}")
             tokens, seconds = tokens + len(out), seconds + st.seconds
             drafted, accepted, passes = drafted + st.drafted, accepted + st.accepted, passes + st.target_passes
         alpha = accepted / drafted
